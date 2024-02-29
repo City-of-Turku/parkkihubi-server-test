@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import requests
 from constants import (
     HEADERS, PARKKI_HOST, PARKKI_HTTP_HOST, TEST_DOMAIN,
-    TEST_PAYMENT_ZONE_NUMBER, TIMEFORMAT)
+    TEST_PAYMENT_ZONE_NUMBER, TIMEFORMAT, TEST_PERMIT_AREA_IDENTIFIER_1)
 from utils import value_in_list_of_dicts
 
 NOW = datetime.now()
@@ -50,7 +50,7 @@ def test_get_permit_areas():
     assert "code" in json_data["results"][0]
     assert "domain" in json_data["results"][0]
     assert value_in_list_of_dicts(TEST_DOMAIN, json_data["results"]) is True
-    assert value_in_list_of_dicts("A", json_data["results"]) is True
+    assert value_in_list_of_dicts(TEST_PERMIT_AREA_IDENTIFIER_1, json_data["results"]) is True
 
 
 def test_create_not_valid_parking_to_http(data=DATA):
