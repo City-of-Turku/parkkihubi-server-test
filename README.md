@@ -17,7 +17,7 @@ Add the following variables to the environment. If the item does not exists in t
 * Permit series(Active set to True), add the ID to the environment variable 'TEST_PERMIT_SERIES_ID'
 * Two Parking areas, add the Identifiers of the areas to the environment variables 'TEST_PERMIT_AREA_IDENTIFIER_1' and 'TEST_PERMIT_AREA_IDENTIFIER_2'
 Note, the entrys must be in the the same domain.
-
+* EventArea, add the id to the environment variable TEST_EVENT_AREA_ID
 
 ## Running test
 * Operator: `python operator_api_tests.py`
