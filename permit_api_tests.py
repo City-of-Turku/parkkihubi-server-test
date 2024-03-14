@@ -2,9 +2,10 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 
 import requests
-from constants import (
-    HEADERS, PARKKI_HOST, TEST_DOMAIN, TEST_EXTERNAL_ID,
-    TEST_PERMIT_AREA_IDENTIFIER_1, TEST_PERMIT_SERIES_ID, TIMEFORMAT)
+
+from constants import (HEADERS, PARKKI_HOST, TEST_DOMAIN, TEST_EXTERNAL_ID,
+                       TEST_PERMIT_AREA_IDENTIFIER_1, TEST_PERMIT_SERIES_ID,
+                       TIMEFORMAT)
 from utils import value_in_list_of_dicts
 
 NOW = datetime.now()
@@ -16,21 +17,22 @@ DATA = {
         {
             "start_time": (NOW - timedelta(days=3)).strftime(TIMEFORMAT),
             "end_time": (NOW + timedelta(days=30)).strftime(TIMEFORMAT),
-            "registration_number": "TES71"
-
-        }],
+            "registration_number": "TES71",
+        }
+    ],
     "areas": [
         {
             "start_time": (NOW - timedelta(days=3)).strftime(TIMEFORMAT),
             "end_time": (NOW + timedelta(days=30)).strftime(TIMEFORMAT),
-            "area": TEST_PERMIT_AREA_IDENTIFIER_1
-        }]
+            "area": TEST_PERMIT_AREA_IDENTIFIER_1,
+        }
+    ],
 }
 
 
 def test_get_list_of_parking_permits():
     response = requests.get(f"{PARKKI_HOST}/operator/v1/permit/", headers=HEADERS)
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     json_data = response.json()
     assert "count" in json_data
     assert "next" in json_data
@@ -39,10 +41,14 @@ def test_get_list_of_parking_permits():
 
 
 def test_create_a_permit_object(data=DATA):
-    response = requests.post(f"{PARKKI_HOST}/operator/v1/permit/", headers=HEADERS, json=data)
-    assert response.status_code == 201
+    response = requests.post(
+        f"{PARKKI_HOST}/operator/v1/permit/", headers=HEADERS, json=data
+    )
+    assert response.status_code == 201, response.text
     json_data = response.json()
-    assert value_in_list_of_dicts(data["subjects"][0]["registration_number"], json_data["subjects"])
+    assert value_in_list_of_dicts(
+        data["subjects"][0]["registration_number"], json_data["subjects"]
+    )
     assert value_in_list_of_dicts(TEST_PERMIT_AREA_IDENTIFIER_1, json_data["areas"])
     assert json_data["external_id"] == TEST_EXTERNAL_ID
     return json_data["id"]
@@ -50,12 +56,14 @@ def test_create_a_permit_object(data=DATA):
 
 def test_get_details_of_a_permit(id):
     response = requests.get(f"{PARKKI_HOST}/operator/v1/permit/{id}/", headers=HEADERS)
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     json_data = response.json()
     assert json_data["id"] == id
     assert json_data["external_id"] == TEST_EXTERNAL_ID
     assert json_data["domain"] == TEST_DOMAIN
-    assert value_in_list_of_dicts(DATA["subjects"][0]["registration_number"], json_data["subjects"])
+    assert value_in_list_of_dicts(
+        DATA["subjects"][0]["registration_number"], json_data["subjects"]
+    )
     assert value_in_list_of_dicts(TEST_PERMIT_AREA_IDENTIFIER_1, json_data["areas"])
 
 
@@ -63,27 +71,35 @@ def test_replace_a_permit(id):
     data = deepcopy(DATA)
     data["id"] = 999999
     data["subjects"][0]["registration_number"] = "REP71"
-    response = requests.put(f"{PARKKI_HOST}/operator/v1/permit/{id}/", headers=HEADERS, json=data)
-    assert response.status_code == 200
+    response = requests.put(
+        f"{PARKKI_HOST}/operator/v1/permit/{id}/", headers=HEADERS, json=data
+    )
+    assert response.status_code == 200, response.text
     json_data = response.json()
     # Note, changing ID is not possible
     assert json_data["id"] == id
     assert json_data["external_id"] == TEST_EXTERNAL_ID
     assert json_data["domain"] == TEST_DOMAIN
-    assert value_in_list_of_dicts(data["subjects"][0]["registration_number"], json_data["subjects"])
+    assert value_in_list_of_dicts(
+        data["subjects"][0]["registration_number"], json_data["subjects"]
+    )
     assert value_in_list_of_dicts(TEST_PERMIT_AREA_IDENTIFIER_1, json_data["areas"])
 
 
 def test_update_a_permit(id):
     data = deepcopy(DATA)
     data["subjects"][0]["registration_number"] = "UPP42"
-    response = requests.patch(f"{PARKKI_HOST}/operator/v1/permit/{id}/", headers=HEADERS, json=data)
-    assert response.status_code == 200
+    response = requests.patch(
+        f"{PARKKI_HOST}/operator/v1/permit/{id}/", headers=HEADERS, json=data
+    )
+    assert response.status_code == 200, response.text
     json_data = response.json()
     assert json_data["id"] == id
     assert json_data["external_id"] == TEST_EXTERNAL_ID
     assert json_data["domain"] == TEST_DOMAIN
-    assert value_in_list_of_dicts(data["subjects"][0]["registration_number"], json_data["subjects"])
+    assert value_in_list_of_dicts(
+        data["subjects"][0]["registration_number"], json_data["subjects"]
+    )
     assert value_in_list_of_dicts(TEST_PERMIT_AREA_IDENTIFIER_1, json_data["areas"])
 
 
@@ -98,12 +114,16 @@ def test_list_of_permits_in_active_series():
 
 
 def test_create_permit_to_the_active_series(data=DATA):
-    response = requests.post(f"{PARKKI_HOST}/operator/v1/activepermit/", headers=HEADERS, json=data)
+    response = requests.post(
+        f"{PARKKI_HOST}/operator/v1/activepermit/", headers=HEADERS, json=data
+    )
     # If assertion fails, check that the permit series configured in 'TEST_PERMIT_SERIES_ID' is Active
-    assert response.status_code == 201
+    assert response.status_code == 201, response.text
     json_data = response.json()
     assert json_data
-    assert value_in_list_of_dicts(data["subjects"][0]["registration_number"], json_data["subjects"])
+    assert value_in_list_of_dicts(
+        data["subjects"][0]["registration_number"], json_data["subjects"]
+    )
     assert value_in_list_of_dicts(TEST_PERMIT_AREA_IDENTIFIER_1, json_data["areas"])
     assert json_data["external_id"] == TEST_EXTERNAL_ID
     return json_data["id"]
@@ -111,44 +131,60 @@ def test_create_permit_to_the_active_series(data=DATA):
 
 def test_update_a_permit_in_the_active_series(id, data=DATA):
     data["subjects"][0]["registration_number"] = "UPP42"
-    response = requests.patch(f"{PARKKI_HOST}/operator/v1/activepermit/{id}/", headers=HEADERS, json=data)
-    assert response.status_code == 200
+    response = requests.patch(
+        f"{PARKKI_HOST}/operator/v1/activepermit/{id}/", headers=HEADERS, json=data
+    )
+    assert response.status_code == 200, response.text
     json_data = response.json()
     assert json_data["external_id"] == TEST_EXTERNAL_ID
     assert json_data["domain"] == TEST_DOMAIN
-    assert value_in_list_of_dicts(DATA["subjects"][0]["registration_number"], json_data["subjects"])
+    assert value_in_list_of_dicts(
+        DATA["subjects"][0]["registration_number"], json_data["subjects"]
+    )
     assert value_in_list_of_dicts(TEST_PERMIT_AREA_IDENTIFIER_1, json_data["areas"])
 
 
 def test_replace_a_permit_in_the_active_series(id, data=DATA):
     data["subjects"][0]["registration_number"] = "REP71"
-    response = requests.put(f"{PARKKI_HOST}/operator/v1/activepermit/{id}/", headers=HEADERS, json=data)
-    assert response.status_code == 200
+    response = requests.put(
+        f"{PARKKI_HOST}/operator/v1/activepermit/{id}/", headers=HEADERS, json=data
+    )
+    assert response.status_code == 200, response.text
     json_data = response.json()
     assert json_data["external_id"] == TEST_EXTERNAL_ID
     assert json_data["domain"] == TEST_DOMAIN
-    assert value_in_list_of_dicts(DATA["subjects"][0]["registration_number"], json_data["subjects"])
+    assert value_in_list_of_dicts(
+        DATA["subjects"][0]["registration_number"], json_data["subjects"]
+    )
     assert value_in_list_of_dicts(TEST_PERMIT_AREA_IDENTIFIER_1, json_data["areas"])
 
 
 def test_get_details_of_a_activepermit(id):
-    response = requests.get(f"{PARKKI_HOST}/operator/v1/activepermit/{id}/", headers=HEADERS)
-    assert response.status_code == 200
+    response = requests.get(
+        f"{PARKKI_HOST}/operator/v1/activepermit/{id}/", headers=HEADERS
+    )
+    assert response.status_code == 200, response.text
     json_data = response.json()
     assert json_data["external_id"] == TEST_EXTERNAL_ID
     assert json_data["domain"] == TEST_DOMAIN
-    assert value_in_list_of_dicts(DATA["subjects"][0]["registration_number"], json_data["subjects"])
+    assert value_in_list_of_dicts(
+        DATA["subjects"][0]["registration_number"], json_data["subjects"]
+    )
     assert value_in_list_of_dicts(TEST_PERMIT_AREA_IDENTIFIER_1, json_data["areas"])
 
 
 def test_delete_a_permit(id):
-    response = requests.delete(f"{PARKKI_HOST}/operator/v1/permit/{id}/", headers=HEADERS)
-    assert response.status_code == 204
+    response = requests.delete(
+        f"{PARKKI_HOST}/operator/v1/permit/{id}/", headers=HEADERS
+    )
+    assert response.status_code == 204, response.text
 
 
 def test_delete_a_permit_in_active_series(id):
-    response = requests.delete(f"{PARKKI_HOST}/operator/v1/activepermit/{id}/", headers=HEADERS)
-    assert response.status_code == 204
+    response = requests.delete(
+        f"{PARKKI_HOST}/operator/v1/activepermit/{id}/", headers=HEADERS
+    )
+    assert response.status_code == 204, response.text
 
 
 if __name__ == "__main__":
