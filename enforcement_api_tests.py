@@ -2,24 +2,21 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 
 import requests
-from constants import (
-    HEADERS, PARKKI_HOST, TEST_DOMAIN, TEST_EXTERNAL_ID,
-    TEST_PAYMENT_ZONE_NUMBER, TEST_PERMIT_AREA_IDENTIFIER_1,
-    TEST_PERMIT_AREA_IDENTIFIER_2, TEST_PERMIT_SERIES_ID, TIMEFORMAT)
+
+from constants import (HEADERS, PARKKI_HOST, TEST_DOMAIN, TEST_EVENT_AREA_ID,
+                       TEST_EVENT_PARKING, TEST_EXTERNAL_ID,
+                       TEST_PAYMENT_ZONE_NUMBER, TEST_PERMIT_AREA_IDENTIFIER_1,
+                       TEST_PERMIT_AREA_IDENTIFIER_2, TEST_PERMIT_SERIES_ID,
+                       TIMEFORMAT)
 from utils import value_in_list_of_dicts
 
 NOW = datetime.now()
-TEST_REG_NUM = "TES7"
+TEST_REG_NUM = "TES777"
 PARKING_DATA = {
     "zone": TEST_PAYMENT_ZONE_NUMBER,
     "domain": TEST_DOMAIN,
-    "location": {
-        "type": "Point",
-        "coordinates": [
-            22.2621559,
-            60.4525144
-        ]
-    },
+    "event_area_id": TEST_EVENT_AREA_ID,
+    "location": {"type": "Point", "coordinates": [22.2621559, 60.4525144]},
     "registration_number": TEST_REG_NUM,
 }
 PERMIT_DATA = {
@@ -30,71 +27,111 @@ PERMIT_DATA = {
         {
             "start_time": (NOW - timedelta(days=3)).strftime(TIMEFORMAT),
             "end_time": (NOW + timedelta(days=30)).strftime(TIMEFORMAT),
-            "registration_number": PARKING_DATA["registration_number"]
-
-        }],
+            "registration_number": PARKING_DATA["registration_number"],
+        }
+    ],
     "areas": [
         {
             "start_time": (NOW - timedelta(days=3)).strftime(TIMEFORMAT),
             "end_time": (NOW + timedelta(days=30)).strftime(TIMEFORMAT),
-            "area": TEST_PERMIT_AREA_IDENTIFIER_1
-        }]
+            "area": TEST_PERMIT_AREA_IDENTIFIER_1,
+        }
+    ],
 }
 
 
 def create_a_permit_object(data=PERMIT_DATA):
-    response = requests.post(f"{PARKKI_HOST}/enforcement/v1/permit/", headers=HEADERS, json=data)
-    assert response.status_code == 201
+    response = requests.post(
+        f"{PARKKI_HOST}/enforcement/v1/permit/", headers=HEADERS, json=data
+    )
+    assert response.status_code == 201, response.text
     return response.json()["id"]
 
 
 def delete_a_permit(id):
-    response = requests.delete(f"{PARKKI_HOST}/enforcement/v1/permit/{id}/", headers=HEADERS)
-    assert response.status_code == 204
+    response = requests.delete(
+        f"{PARKKI_HOST}/enforcement/v1/permit/{id}/", headers=HEADERS
+    )
+    assert response.status_code == 204, response.text
 
 
 def create_valid_parking(data=PARKING_DATA):
     data["time_start"] = (NOW - timedelta(hours=4)).strftime(TIMEFORMAT)
     data["time_end"] = (NOW + timedelta(days=1, hours=1)).strftime(TIMEFORMAT)
-    response = requests.post(f"{PARKKI_HOST}/operator/v1/parking/", headers=HEADERS, json=data)
-    assert response.status_code == 201
+    response = requests.post(
+        f"{PARKKI_HOST}/operator/v1/parking/", headers=HEADERS, json=data
+    )
+    assert response.status_code == 201, response.text
+    json_data = response.json()
+    assert json_data["status"] == "valid"
+    return json_data["id"]
+
+
+def create_valid_event_parking(data=PARKING_DATA):
+    data["time_start"] = (NOW - timedelta(hours=4)).strftime(TIMEFORMAT)
+    data["time_end"] = (NOW + timedelta(days=1, hours=1)).strftime(TIMEFORMAT)
+    response = requests.post(
+        f"{PARKKI_HOST}/operator/v1/event_parking/", headers=HEADERS, json=data
+    )
+    assert response.status_code == 201, response.text
     json_data = response.json()
     assert json_data["status"] == "valid"
     return json_data["id"]
 
 
 def activate_a_permit_series(id):
-    response = requests.post(f"{PARKKI_HOST}/enforcement/v1/permitseries/{id}/activate/", headers=HEADERS, data={})
-    assert response.status_code == 200
+    response = requests.post(
+        f"{PARKKI_HOST}/enforcement/v1/permitseries/{id}/activate/",
+        headers=HEADERS,
+        data={},
+    )
+    assert response.status_code == 200, response.text
 
 
 def delete_parking(id):
-    response = requests.delete(f"{PARKKI_HOST}/operator/v1/parking/{id}/", headers=HEADERS)
-    assert response.status_code == 204
+    response = requests.delete(
+        f"{PARKKI_HOST}/operator/v1/parking/{id}/", headers=HEADERS
+    )
+    assert response.status_code == 204, response.text
+
+
+def delete_event_parking(id):
+    response = requests.delete(
+        f"{PARKKI_HOST}/operator/v1/event_parking/{id}/", headers=HEADERS
+    )
+    assert response.status_code == 204, response.text
 
 
 def delete_permit_series_object(id):
-    response = requests.delete(f"{PARKKI_HOST}/operator/v1/permitseries/{id}/", headers=HEADERS)
-    assert response.status_code == 204
+    response = requests.delete(
+        f"{PARKKI_HOST}/operator/v1/permitseries/{id}/", headers=HEADERS
+    )
+    assert response.status_code == 204, response.text
 
 
 def test_get_valid_parking_unauthorization():
     headers = deepcopy(HEADERS)
     headers["Authorization"] = "ApiKey foo42"
-    response = requests.get(f"{PARKKI_HOST}/enforcement/v1/valid_parking/", headers=headers)
-    assert response.status_code == 401
+    response = requests.get(
+        f"{PARKKI_HOST}/enforcement/v1/valid_parking/", headers=headers
+    )
+    assert response.status_code == 401, response.text
 
 
 def test_get_valid_parkings_no_parameters():
-    response = requests.get(f"{PARKKI_HOST}/enforcement/v1/valid_parking/", headers=HEADERS)
-    assert response.status_code == 400
+    response = requests.get(
+        f"{PARKKI_HOST}/enforcement/v1/valid_parking/", headers=HEADERS
+    )
+    assert response.status_code == 400, response.text
     assert "Either time or registration number required" in response.text
 
 
 def test_get_valid_parkings():
     time = (datetime.now() - timedelta(days=1)).strftime(TIMEFORMAT)
-    response = requests.get(f"{PARKKI_HOST}/enforcement/v1/valid_parking/?time={time}", headers=HEADERS)
-    assert response.status_code == 200
+    response = requests.get(
+        f"{PARKKI_HOST}/enforcement/v1/valid_parking/?time={time}", headers=HEADERS
+    )
+    assert response.status_code == 200, response.text
     json_data = response.json()
     assert json_data["count"] > 0
     assert "next" in json_data
@@ -103,15 +140,19 @@ def test_get_valid_parkings():
 
 
 def test_get_valid_parking_non_existing():
-    response = requests.get(f"{PARKKI_HOST}/enforcement/v1/valid_parking/?reg_num=TES713", headers=HEADERS)
-    assert response.status_code == 200
+    response = requests.get(
+        f"{PARKKI_HOST}/enforcement/v1/valid_parking/?reg_num=TES713", headers=HEADERS
+    )
+    assert response.status_code == 200, response.text
     assert response.json()["count"] == 0
 
 
 def test_get_valid_parking_existing():
     response = requests.get(
-        f"{PARKKI_HOST}/enforcement/v1/valid_parking/?reg_num={PARKING_DATA['registration_number']}", headers=HEADERS)
-    assert response.status_code == 200
+        f"{PARKKI_HOST}/enforcement/v1/valid_parking/?reg_num={PARKING_DATA['registration_number']}",
+        headers=HEADERS,
+    )
+    assert response.status_code == 200, response.text
     json_data = response.json()
     assert json_data["count"] > 0
     assert "created_at" in json_data["results"][0]
@@ -125,11 +166,19 @@ def test_get_valid_parking_existing():
 
 
 def test_get_list_of_valid_permit_items():
-    response = requests.get(f"{PARKKI_HOST}/enforcement/v1/valid_permit_item/?reg_num={TEST_REG_NUM}", headers=HEADERS)
-    assert response.status_code == 200
+    response = requests.get(
+        f"{PARKKI_HOST}/enforcement/v1/valid_permit_item/?reg_num={TEST_REG_NUM}",
+        headers=HEADERS,
+    )
+    assert response.status_code == 200, response.text
     json_data = response.json()
     assert len(json_data["results"]) > 0
-    assert value_in_list_of_dicts(PARKING_DATA["registration_number"], json_data["results"]) is True
+    assert (
+        value_in_list_of_dicts(
+            PARKING_DATA["registration_number"], json_data["results"]
+        )
+        is True
+    )
     assert "id" in json_data["results"][0]
     assert "permit_id" in json_data["results"][0]
     assert "area" in json_data["results"][0]
@@ -143,7 +192,7 @@ def test_get_list_of_valid_permit_items():
 
 def test_list_of_parking_operators():
     response = requests.get(f"{PARKKI_HOST}/enforcement/v1/operator/", headers=HEADERS)
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     json_data = response.json()
     assert json_data["count"] > 0
     assert "next" in json_data
@@ -153,8 +202,10 @@ def test_list_of_parking_operators():
 
 
 def test_get_details_of_a_parking_operator(id):
-    response = requests.get(f"{PARKKI_HOST}/enforcement/v1/operator/{id}/", headers=HEADERS)
-    assert response.status_code == 200
+    response = requests.get(
+        f"{PARKKI_HOST}/enforcement/v1/operator/{id}/", headers=HEADERS
+    )
+    assert response.status_code == 200, response.text
     json_data = response.json()
     assert json_data["id"] == id
     assert "created_at" in json_data
@@ -163,8 +214,10 @@ def test_get_details_of_a_parking_operator(id):
 
 
 def test_get_list_of_permit_series():
-    response = requests.get(f"{PARKKI_HOST}/enforcement/v1/permitseries/", headers=HEADERS)
-    assert response.status_code == 200
+    response = requests.get(
+        f"{PARKKI_HOST}/enforcement/v1/permitseries/", headers=HEADERS
+    )
+    assert response.status_code == 200, response.text
     json_data = response.json()
     assert "count" in json_data
     assert "next" in json_data
@@ -175,8 +228,10 @@ def test_get_list_of_permit_series():
 
 
 def test_create_a_permit_series_object():
-    response = requests.post(f"{PARKKI_HOST}/enforcement/v1/permitseries/", headers=HEADERS, json={})
-    assert response.status_code == 201
+    response = requests.post(
+        f"{PARKKI_HOST}/enforcement/v1/permitseries/", headers=HEADERS, json={}
+    )
+    assert response.status_code == 201, response.text
     json_data = response.json()
     assert "created_at" in json_data
     assert "modified_at" in json_data
@@ -185,8 +240,10 @@ def test_create_a_permit_series_object():
 
 
 def test_get_details_of_permit_series(id):
-    response = requests.get(f"{PARKKI_HOST}/enforcement/v1/permitseries/{id}/", headers=HEADERS)
-    assert response.status_code == 200
+    response = requests.get(
+        f"{PARKKI_HOST}/enforcement/v1/permitseries/{id}/", headers=HEADERS
+    )
+    assert response.status_code == 200, response.text
     json_data = response.json()
     assert json_data["id"] == id
     assert "created_at" in json_data
@@ -195,27 +252,38 @@ def test_get_details_of_permit_series(id):
 
 
 def test_activate_a_permit_series(id):
-    response = requests.post(f"{PARKKI_HOST}/enforcement/v1/permitseries/{id}/activate/", headers=HEADERS, data={})
-    assert response.status_code == 200
+    response = requests.post(
+        f"{PARKKI_HOST}/enforcement/v1/permitseries/{id}/activate/",
+        headers=HEADERS,
+        data={},
+    )
+    assert response.status_code == 200, response.text
     assert response.json()["status"] == "OK"
-    response = requests.get(f"{PARKKI_HOST}/enforcement/v1/permitseries/{id}/", headers=HEADERS)
-    assert response.status_code == 200
+    response = requests.get(
+        f"{PARKKI_HOST}/enforcement/v1/permitseries/{id}/", headers=HEADERS
+    )
+    assert response.status_code == 200, response.text
     json_data = response.json()
     assert json_data["id"] == id
     assert json_data["active"] is True
-    response = requests.post(f"{PARKKI_HOST}/enforcement/v1/permitseries/{id}/activate/", headers=HEADERS, data={})
-    assert response.status_code == 200
+    response = requests.post(
+        f"{PARKKI_HOST}/enforcement/v1/permitseries/{id}/activate/",
+        headers=HEADERS,
+        data={},
+    )
+    assert response.status_code == 200, response.text
     assert response.json()["status"] == "No change"
 
 
 def test_get_list_of_your_parking_permits():
     response = requests.get(f"{PARKKI_HOST}/enforcement/v1/permit/", headers=HEADERS)
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     json_data = response.json()
     assert "count" in json_data
     assert "next" in json_data
     assert "previous" in json_data
     assert "results" in json_data
+    #
     assert json_data["count"] > 0
     assert len(json_data["results"]) > 0
 
@@ -223,57 +291,77 @@ def test_get_list_of_your_parking_permits():
 def test_create_a_permit_object():
     data = deepcopy(PERMIT_DATA)
     data["areas"][0]["area"] = "unknown"
-    response = requests.post(f"{PARKKI_HOST}/enforcement/v1/permit/", headers=HEADERS, json=data)
-    assert response.status_code == 400
+    response = requests.post(
+        f"{PARKKI_HOST}/enforcement/v1/permit/", headers=HEADERS, json=data
+    )
+    assert response.status_code == 400, response.text
     assert "Unknown identifiers" in response.text
 
     data["areas"][0]["area"] = TEST_PERMIT_AREA_IDENTIFIER_1
-    response = requests.post(f"{PARKKI_HOST}/enforcement/v1/permit/", headers=HEADERS, json=data)
-    assert response.status_code == 201
+    response = requests.post(
+        f"{PARKKI_HOST}/enforcement/v1/permit/", headers=HEADERS, json=data
+    )
+    assert response.status_code == 201, response.text
     json_data = response.json()
-    assert value_in_list_of_dicts(data["subjects"][0]["registration_number"], json_data["subjects"])
+    assert value_in_list_of_dicts(
+        data["subjects"][0]["registration_number"], json_data["subjects"]
+    )
     assert value_in_list_of_dicts(TEST_PERMIT_AREA_IDENTIFIER_1, json_data["areas"])
     assert json_data["external_id"] == TEST_EXTERNAL_ID
     return json_data["id"]
 
 
 def test_get_details_of_a_permit(id):
-    response = requests.get(f"{PARKKI_HOST}/enforcement/v1/permit/{id}/", headers=HEADERS)
-    assert response.status_code == 200
+    response = requests.get(
+        f"{PARKKI_HOST}/enforcement/v1/permit/{id}/", headers=HEADERS
+    )
+    assert response.status_code == 200, response.text
     json_data = response.json()
     assert json_data["id"] == id
     assert json_data["subjects"][0]["registration_number"] == TEST_REG_NUM
 
 
 def test_replace_a_permit(id, data=PERMIT_DATA):
-    response = requests.put(f"{PARKKI_HOST}/enforcement/v1/permit/{id}/", headers=HEADERS, json=data)
-    assert response.status_code == 200
+    response = requests.put(
+        f"{PARKKI_HOST}/enforcement/v1/permit/{id}/", headers=HEADERS, json=data
+    )
+    assert response.status_code == 200, response.text
     json_data = response.json()
     assert json_data["id"] == id
     assert json_data["subjects"][0]["registration_number"] == TEST_REG_NUM
 
 
 def test_update_a_permit(id, data=PERMIT_DATA):
-    response = requests.patch(f"{PARKKI_HOST}/enforcement/v1/permit/{id}/", headers=HEADERS, json=data)
-    assert response.status_code == 200
+    response = requests.patch(
+        f"{PARKKI_HOST}/enforcement/v1/permit/{id}/", headers=HEADERS, json=data
+    )
+    assert response.status_code == 200, response.text
     json_data = response.json()
     assert json_data["id"] == id
     assert json_data["subjects"][0]["registration_number"] == TEST_REG_NUM
 
 
 def test_create_a_permit_to_the_active_series(data=PERMIT_DATA):
-    response = requests.post(f"{PARKKI_HOST}/enforcement/v1/active_permit_by_external_id/", headers=HEADERS, json=data)
-    assert response.status_code == 201
+    response = requests.post(
+        f"{PARKKI_HOST}/enforcement/v1/active_permit_by_external_id/",
+        headers=HEADERS,
+        json=data,
+    )
+    assert response.status_code == 201, response.text
     json_data = response.json()
     assert "series" in json_data
     assert json_data["external_id"] == TEST_EXTERNAL_ID
-    assert value_in_list_of_dicts(data["subjects"][0]["registration_number"], json_data["subjects"])
+    assert value_in_list_of_dicts(
+        data["subjects"][0]["registration_number"], json_data["subjects"]
+    )
     return json_data["id"]
 
 
 def test_get_list_of_permits_in_the_active_series():
-    response = requests.get(f"{PARKKI_HOST}/enforcement/v1/active_permit_by_external_id/", headers=HEADERS)
-    assert response.status_code == 200
+    response = requests.get(
+        f"{PARKKI_HOST}/enforcement/v1/active_permit_by_external_id/", headers=HEADERS
+    )
+    assert response.status_code == 200, response.text
     json_data = response.json()
     assert "count" in json_data
     assert "next" in json_data
@@ -284,35 +372,82 @@ def test_get_list_of_permits_in_the_active_series():
 
 
 def test_get_details_of_a_permit_in_the_active_series(id):
-    response = requests.get(f"{PARKKI_HOST}/enforcement/v1/active_permit_by_external_id/{id}/", headers=HEADERS)
-    assert response.status_code == 200
+    response = requests.get(
+        f"{PARKKI_HOST}/enforcement/v1/active_permit_by_external_id/{id}/",
+        headers=HEADERS,
+    )
+    assert response.status_code == 200, response.text
     json_data = response.json()
     assert json_data["external_id"] == id
-    assert value_in_list_of_dicts(PERMIT_DATA["subjects"][0]["registration_number"], json_data["subjects"])
+    assert value_in_list_of_dicts(
+        PERMIT_DATA["subjects"][0]["registration_number"], json_data["subjects"]
+    )
 
 
 def test_update_a_permit_in_the_active_series(id):
     data = deepcopy(PERMIT_DATA)
     data["areas"][0]["area"] = TEST_PERMIT_AREA_IDENTIFIER_2
     response = requests.patch(
-        f"{PARKKI_HOST}/enforcement/v1/active_permit_by_external_id/{id}/", headers=HEADERS, json=data)
-    assert response.status_code == 200
+        f"{PARKKI_HOST}/enforcement/v1/active_permit_by_external_id/{id}/",
+        headers=HEADERS,
+        json=data,
+    )
+    assert response.status_code == 200, response.text
     json_data = response.json()
     assert json_data["areas"][0]["area"] == TEST_PERMIT_AREA_IDENTIFIER_2
     assert json_data["external_id"] == id
-    assert value_in_list_of_dicts(PERMIT_DATA["subjects"][0]["registration_number"], json_data["subjects"])
+    assert value_in_list_of_dicts(
+        PERMIT_DATA["subjects"][0]["registration_number"], json_data["subjects"]
+    )
 
 
 def test_replace_a_permit_in_the_active_series(id):
     data = deepcopy(PERMIT_DATA)
     data["areas"][0]["area"] = TEST_PERMIT_AREA_IDENTIFIER_2
     response = requests.patch(
-        f"{PARKKI_HOST}/enforcement/v1/active_permit_by_external_id/{id}/", headers=HEADERS, json=data)
-    assert response.status_code == 200
+        f"{PARKKI_HOST}/enforcement/v1/active_permit_by_external_id/{id}/",
+        headers=HEADERS,
+        json=data,
+    )
+    assert response.status_code == 200, response.text
     json_data = response.json()
     assert json_data["areas"][0]["area"] == TEST_PERMIT_AREA_IDENTIFIER_2
     assert json_data["external_id"] == id
-    assert value_in_list_of_dicts(PERMIT_DATA["subjects"][0]["registration_number"], json_data["subjects"])
+    assert value_in_list_of_dicts(
+        PERMIT_DATA["subjects"][0]["registration_number"], json_data["subjects"]
+    )
+
+
+def test_get_valid_event_parkings():
+    time = datetime.now().strftime(TIMEFORMAT)
+    response = requests.get(
+        f"{PARKKI_HOST}/enforcement/v1/valid_event_parking/?time={time}",
+        headers=HEADERS,
+    )
+    assert response.status_code == 200, response.text
+    json_data = response.json()
+    assert json_data["count"] > 0
+    assert "next" in json_data
+    assert "previous" in json_data
+    assert "results" in json_data
+
+
+def test_get_valid_event_parking_existing():
+    response = requests.get(
+        f"{PARKKI_HOST}/enforcement/v1/valid_event_parking/?reg_num={TEST_REG_NUM}",
+        headers=HEADERS,
+    )
+    assert response.status_code == 200, response.text
+    json_data = response.json()
+    assert json_data["count"] > 0
+    assert "created_at" in json_data["results"][0]
+    assert "modified_at" in json_data["results"][0]
+    assert "registration_number" in json_data["results"][0]
+    assert "time_start" in json_data["results"][0]
+    assert "time_end" in json_data["results"][0]
+    assert "event_area" in json_data["results"][0]
+    assert "operator" in json_data["results"][0]
+    assert "operator_name" in json_data["results"][0]
 
 
 if __name__ == "__main__":
@@ -360,3 +495,8 @@ if __name__ == "__main__":
     # As activation of a permit series deactivates all other permit series owned by the user
     # active the test permit series
     activate_a_permit_series(TEST_PERMIT_SERIES_ID)
+    if TEST_EVENT_PARKING:
+        event_parking_id = create_valid_event_parking()
+        test_get_valid_event_parkings()
+        test_get_valid_event_parking_existing()
+        delete_event_parking(event_parking_id)
