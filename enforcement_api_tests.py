@@ -127,7 +127,7 @@ def test_get_valid_parkings_no_parameters():
 
 
 def test_get_valid_parkings():
-    time = (datetime.now() - timedelta(days=1)).strftime(TIMEFORMAT)
+    time = datetime.now().strftime(TIMEFORMAT)
     response = requests.get(
         f"{PARKKI_HOST}/enforcement/v1/valid_parking/?time={time}", headers=HEADERS
     )
