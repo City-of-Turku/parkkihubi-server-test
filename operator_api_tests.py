@@ -110,6 +110,7 @@ def test_get_permit_areas():
 
 
 def test_create_not_valid_parking_to_http(data=DATA):
+    # If testing on localhost this test fails.
     # Fails as posting to HTTP and not HTTPS
     response = requests.post(
         f"{PARKKI_HTTP_HOST}/operator/v1/parking/", headers=HEADERS, json=data
