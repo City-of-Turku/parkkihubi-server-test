@@ -2,6 +2,8 @@ from os import environ
 
 from dotenv import load_dotenv
 
+from utils import str_to_bool
+
 load_dotenv(".env", override=True)
 
 TIMEFORMAT = "%Y-%m-%dT%H:%MZ"
@@ -18,5 +20,6 @@ TEST_EXTERNAL_ID = environ.get("TEST_EXTERNAL_ID", None)
 TEST_PERMIT_SERIES_ID = environ.get("TEST_PERMIT_SERIES_ID", None)
 TEST_PERMIT_AREA_IDENTIFIER_1 = environ.get("TEST_PERMIT_AREA_IDENTIFIER_1", None)
 TEST_PERMIT_AREA_IDENTIFIER_2 = environ.get("TEST_PERMIT_AREA_IDENTIFIER_2", None)
-TEST_EVENT_PARKING = environ.get("TEST_EVENT_PARKING", False)
+TEST_EVENT_PARKING = str_to_bool(environ.get("TEST_EVENT_PARKING", False))
 TEST_EVENT_AREA_ID = environ.get("TEST_EVENT_AREA_ID", None)
+TEST_HTTP = str_to_bool(environ.get("TEST_HTTP", False))

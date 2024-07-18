@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import requests
 
 from constants import (HEADERS, PARKKI_HOST, PARKKI_HTTP_HOST, TEST_DOMAIN,
-                       TEST_EVENT_AREA_ID, TEST_EVENT_PARKING,
+                       TEST_EVENT_AREA_ID, TEST_EVENT_PARKING, TEST_HTTP,
                        TEST_PAYMENT_ZONE_NUMBER, TEST_PERMIT_AREA_IDENTIFIER_1,
                        TIMEFORMAT)
 from utils import value_in_list_of_dicts
@@ -37,9 +37,9 @@ def test_create_event_parking_without_event_area(data=DATA):
     assert "No event area found" in response.text
 
 
-def test_create_valid_event_parking(data=DATA):
+def test_create_valid_event_parking(event_area_id=TEST_EVENT_AREA_ID, data=DATA):
     data = deepcopy(data)
-    data["event_area_id"] = TEST_EVENT_AREA_ID
+    data["event_area_id"] = event_area_id
     data["time_start"] = (NOW - timedelta(hours=4)).strftime(TIMEFORMAT)
     data["time_end"] = (NOW + timedelta(days=1, hours=1)).strftime(TIMEFORMAT)
     response = requests.post(
@@ -177,7 +177,8 @@ def test_parking_replace_by_id_and_grace_period(id, data=DATA):
 if __name__ == "__main__":
     test_get_payment_zones()
     test_get_permit_areas()
-    test_create_not_valid_parking_to_http(DATA)
+    if TEST_HTTP:
+        test_create_not_valid_parking_to_http(DATA)
     id = test_create_not_valid_parking(DATA)
     test_delete_parking(id)
     id = test_create_valid_parking()
