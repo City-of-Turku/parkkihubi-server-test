@@ -67,7 +67,9 @@ def create_valid_parking(data=PARKING_DATA):
     return json_data["id"]
 
 
-def create_valid_event_parking(data=PARKING_DATA):
+def create_valid_event_parking():
+    data = deepcopy(PARKING_DATA)
+    del data["location"]
     data["time_start"] = (NOW - timedelta(hours=4)).strftime(TIMEFORMAT)
     data["time_end"] = (NOW + timedelta(days=1, hours=1)).strftime(TIMEFORMAT)
     response = requests.post(
