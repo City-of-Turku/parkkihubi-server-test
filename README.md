@@ -18,6 +18,9 @@ Add the following variables to the environment. If the item does not exists in t
 * Two Parking areas, add the Identifiers of the areas to the environment variables 'TEST_PERMIT_AREA_IDENTIFIER_1' and 'TEST_PERMIT_AREA_IDENTIFIER_2'
 Note, the entrys must be in the the same domain.
 * EventArea, add the id to the environment variable TEST_EVENT_AREA_ID
+* Add longitude and latitude of a point that is inside the event area that is usesd in the test.
+TEST_EVENT_AREA_LONGITUDE
+TEST_EVENT_AREA_LATITUDE
 
 ## Running test
 * Operator: `python operator_api_tests.py`
