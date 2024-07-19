@@ -4,10 +4,18 @@ from datetime import datetime, timedelta
 
 import requests
 
-from constants import (HEADERS, PARKKI_HOST, PARKKI_HTTP_HOST, TEST_DOMAIN,
-                       TEST_EVENT_AREA_ID, TEST_EVENT_PARKING, TEST_HTTP,
-                       TEST_PAYMENT_ZONE_NUMBER, TEST_PERMIT_AREA_IDENTIFIER_1,
-                       TIMEFORMAT)
+from constants import (
+    HEADERS,
+    PARKKI_HOST,
+    PARKKI_HTTP_HOST,
+    TEST_DOMAIN,
+    TEST_EVENT_AREA_ID,
+    TEST_EVENT_PARKING,
+    TEST_HTTP,
+    TEST_PAYMENT_ZONE_NUMBER,
+    TEST_PERMIT_AREA_IDENTIFIER_1,
+    TIMEFORMAT,
+)
 from utils import value_in_list_of_dicts
 
 NOW = datetime.now()
