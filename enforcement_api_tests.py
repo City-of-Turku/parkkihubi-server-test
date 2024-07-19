@@ -3,11 +3,21 @@ from datetime import datetime, timedelta
 
 import requests
 
-from constants import (HEADERS, PARKKI_HOST, TEST_DOMAIN, TEST_EVENT_AREA_ID,
-                       TEST_EVENT_PARKING, TEST_EXTERNAL_ID,
-                       TEST_PAYMENT_ZONE_NUMBER, TEST_PERMIT_AREA_IDENTIFIER_1,
-                       TEST_PERMIT_AREA_IDENTIFIER_2, TEST_PERMIT_SERIES_ID,
-                       TIMEFORMAT)
+from constants import (
+    HEADERS,
+    PARKKI_HOST,
+    TEST_DOMAIN,
+    TEST_EVENT_AREA_ID,
+    TEST_EVENT_PARKING,
+    TEST_EXTERNAL_ID,
+    TEST_PAYMENT_ZONE_NUMBER,
+    TEST_PERMIT_AREA_IDENTIFIER_1,
+    TEST_PERMIT_AREA_IDENTIFIER_2,
+    TEST_PERMIT_SERIES_ID,
+    TIMEFORMAT,
+    TEST_EVENT_AREA_LATITUDE,
+    TEST_EVENT_AREA_LONGITUDE,
+)
 from utils import value_in_list_of_dicts
 
 NOW = datetime.now()
@@ -21,7 +31,6 @@ PARKING_DATA = {
 }
 PERMIT_DATA = {
     "series": TEST_PERMIT_SERIES_ID,
-    # "domain": TEST_DOMAIN,
     "external_id": TEST_EXTERNAL_ID,
     "subjects": [
         {
@@ -38,6 +47,26 @@ PERMIT_DATA = {
         }
     ],
 }
+
+
+def test_check_validity_of_a_parking_or_eventparking(registration_number, location):
+    data = {"registration_number": registration_number}
+    data["location"] = location
+    response = requests.post(
+        f"{PARKKI_HOST}/enforcement/v1/check_parking/", headers=HEADERS, json=data
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["allowed"] is True
+
+
+def test_check_invalidity_of_a_parking_or_eventparking(registration_number, location):
+    data = {"registration_number": registration_number}
+    data["location"] = location
+    response = requests.post(
+        f"{PARKKI_HOST}/enforcement/v1/check_parking/", headers=HEADERS, json=data
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["allowed"] is False
 
 
 def create_a_permit_object(data=PERMIT_DATA):
@@ -69,7 +98,10 @@ def create_valid_parking(data=PARKING_DATA):
 
 def create_valid_event_parking():
     data = deepcopy(PARKING_DATA)
-    del data["location"]
+    # data["location"]
+    # data["registration_number"] = "tet-645"
+    #    "location": {"type": "Point", "coordinates": [22.2621559, 60.4525144]},
+
     data["time_start"] = (NOW - timedelta(hours=4)).strftime(TIMEFORMAT)
     data["time_end"] = (NOW + timedelta(days=1, hours=1)).strftime(TIMEFORMAT)
     response = requests.post(
@@ -462,6 +494,13 @@ if __name__ == "__main__":
     # activate_a_permit_series(TEST_PERMIT_SERIES_ID)
 
     parking_id = create_valid_parking()
+    test_check_validity_of_a_parking_or_eventparking(
+        PARKING_DATA["registration_number"],
+        {
+            "latitude": PARKING_DATA["location"]["coordinates"][1],
+            "longitude": PARKING_DATA["location"]["coordinates"][0],
+        },
+    )
     test_get_valid_parking_unauthorization()
     test_get_valid_parkings_no_parameters()
     test_get_valid_parkings()
@@ -499,6 +538,16 @@ if __name__ == "__main__":
     activate_a_permit_series(TEST_PERMIT_SERIES_ID)
     if TEST_EVENT_PARKING:
         event_parking_id = create_valid_event_parking()
+        test_check_validity_of_a_parking_or_eventparking(
+            TEST_REG_NUM,
+            {
+                "latitude": TEST_EVENT_AREA_LATITUDE,
+                "longitude": TEST_EVENT_AREA_LONGITUDE,
+            },
+        )
+        test_check_invalidity_of_a_parking_or_eventparking(
+            TEST_REG_NUM, {"latitude": 0, "longitude": 0}
+        )
         test_get_valid_event_parkings()
         test_get_valid_event_parking_existing()
         delete_event_parking(event_parking_id)
