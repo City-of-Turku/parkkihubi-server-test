@@ -3,15 +3,9 @@ from datetime import datetime, timedelta
 
 import requests
 
-from constants import (
-    HEADERS,
-    PARKKI_HOST,
-    TEST_DOMAIN,
-    TEST_EXTERNAL_ID,
-    TEST_PERMIT_AREA_IDENTIFIER_1,
-    TEST_PERMIT_SERIES_ID,
-    TIMEFORMAT,
-)
+from constants import (HEADERS, PARKKI_HOST, TEST_DOMAIN, TEST_EXTERNAL_ID,
+                       TEST_PERMIT_AREA_IDENTIFIER_1, TEST_PERMIT_SERIES_ID,
+                       TIMEFORMAT)
 from utils import value_in_list_of_dicts
 
 NOW = datetime.now()
