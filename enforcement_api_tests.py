@@ -3,31 +3,29 @@ from datetime import datetime, timedelta
 
 import requests
 
-from constants import (
-    HEADERS,
-    PARKKI_HOST,
-    TEST_DOMAIN,
-    TEST_EVENT_AREA_ID,
-    TEST_EVENT_PARKING,
-    TEST_EXTERNAL_ID,
-    TEST_PAYMENT_ZONE_NUMBER,
-    TEST_PERMIT_AREA_IDENTIFIER_1,
-    TEST_PERMIT_AREA_IDENTIFIER_2,
-    TEST_PERMIT_SERIES_ID,
-    TIMEFORMAT,
-    TEST_EVENT_AREA_LATITUDE,
-    TEST_EVENT_AREA_LONGITUDE,
-)
+from constants import (HEADERS, PARKKI_HOST, TEST_DOMAIN, TEST_EVENT_AREA_ID,
+                       TEST_EVENT_AREA_LATITUDE, TEST_EVENT_AREA_LONGITUDE,
+                       TEST_EVENT_PARKING, TEST_EXTERNAL_ID,
+                       TEST_PAYMENT_ZONE_NUMBER, TEST_PERMIT_AREA_IDENTIFIER_1,
+                       TEST_PERMIT_AREA_IDENTIFIER_2, TEST_PERMIT_SERIES_ID,
+                       TIMEFORMAT)
 from utils import value_in_list_of_dicts
 
 NOW = datetime.now()
 TEST_REG_NUM = "TES777"
+TEST_EVENT_PARKING_REG_NUM = "TES444"
 PARKING_DATA = {
     "zone": TEST_PAYMENT_ZONE_NUMBER,
     "domain": TEST_DOMAIN,
     "event_area_id": TEST_EVENT_AREA_ID,
     "location": {"type": "Point", "coordinates": [22.2621559, 60.4525144]},
     "registration_number": TEST_REG_NUM,
+}
+EVENT_PARKING_DATA = {
+    "domain": TEST_DOMAIN,
+    "event_area_id": TEST_EVENT_AREA_ID,
+    # "location": {"type": "Point", "coordinates": [22.2621559, 60.4525144]},
+    "registration_number": TEST_EVENT_PARKING_REG_NUM,
 }
 PERMIT_DATA = {
     "series": TEST_PERMIT_SERIES_ID,
@@ -96,12 +94,10 @@ def create_valid_parking(data=PARKING_DATA):
     return json_data["id"]
 
 
-def create_valid_event_parking():
-    data = deepcopy(PARKING_DATA)
-    # data["location"]
-    # data["registration_number"] = "tet-645"
-    #    "location": {"type": "Point", "coordinates": [22.2621559, 60.4525144]},
-
+def create_valid_event_parking(location=None):
+    data = deepcopy(EVENT_PARKING_DATA)
+    if location:
+        data["location"] = location
     data["time_start"] = (NOW - timedelta(hours=4)).strftime(TIMEFORMAT)
     data["time_end"] = (NOW + timedelta(days=1, hours=1)).strftime(TIMEFORMAT)
     response = requests.post(
@@ -468,7 +464,7 @@ def test_get_valid_event_parkings():
 
 def test_get_valid_event_parking_existing():
     response = requests.get(
-        f"{PARKKI_HOST}/enforcement/v1/valid_event_parking/?reg_num={TEST_REG_NUM}",
+        f"{PARKKI_HOST}/enforcement/v1/valid_event_parking/?reg_num={TEST_EVENT_PARKING_REG_NUM}",
         headers=HEADERS,
     )
     assert response.status_code == 200, response.text
@@ -482,6 +478,15 @@ def test_get_valid_event_parking_existing():
     assert "event_area" in json_data["results"][0]
     assert "operator" in json_data["results"][0]
     assert "operator_name" in json_data["results"][0]
+
+
+def test_get_valid_event_parking_in_not_assigned_event_area():
+    response = requests.get(
+        f"{PARKKI_HOST}/enforcement/v1/valid_event_parking/?reg_num={TEST_EVENT_PARKING_REG_NUM}",
+        headers=HEADERS,
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["count"] == 0
 
 
 if __name__ == "__main__":
@@ -539,15 +544,27 @@ if __name__ == "__main__":
     if TEST_EVENT_PARKING:
         event_parking_id = create_valid_event_parking()
         test_check_validity_of_a_parking_or_eventparking(
-            TEST_REG_NUM,
+            TEST_EVENT_PARKING_REG_NUM,
             {
                 "latitude": TEST_EVENT_AREA_LATITUDE,
                 "longitude": TEST_EVENT_AREA_LONGITUDE,
             },
         )
         test_check_invalidity_of_a_parking_or_eventparking(
-            TEST_REG_NUM, {"latitude": 0, "longitude": 0}
+            TEST_EVENT_PARKING_REG_NUM, {"latitude": 0, "longitude": 0}
+        )
+        delete_event_parking(event_parking_id)
+        event_parking_id = create_valid_event_parking(
+            location={
+                "type": "Point",
+                "coordinates": [TEST_EVENT_AREA_LONGITUDE, TEST_EVENT_AREA_LATITUDE],
+            }
         )
         test_get_valid_event_parkings()
         test_get_valid_event_parking_existing()
+        delete_event_parking(event_parking_id)
+        event_parking_id = create_valid_event_parking(
+            location={"type": "Point", "coordinates": [0, 0]}
+        )
+        test_get_valid_event_parking_in_not_assigned_event_area()
         delete_event_parking(event_parking_id)

@@ -4,18 +4,11 @@ from datetime import datetime, timedelta
 
 import requests
 
-from constants import (
-    HEADERS,
-    PARKKI_HOST,
-    PARKKI_HTTP_HOST,
-    TEST_DOMAIN,
-    TEST_EVENT_AREA_ID,
-    TEST_EVENT_PARKING,
-    TEST_HTTP,
-    TEST_PAYMENT_ZONE_NUMBER,
-    TEST_PERMIT_AREA_IDENTIFIER_1,
-    TIMEFORMAT,
-)
+from constants import (HEADERS, PARKKI_HOST, PARKKI_HTTP_HOST, TEST_DOMAIN,
+                       TEST_EVENT_AREA_ID, TEST_EVENT_AREA_LATITUDE,
+                       TEST_EVENT_AREA_LONGITUDE, TEST_EVENT_PARKING,
+                       TEST_HTTP, TEST_PAYMENT_ZONE_NUMBER,
+                       TEST_PERMIT_AREA_IDENTIFIER_1, TIMEFORMAT)
 from utils import value_in_list_of_dicts
 
 NOW = datetime.now()
@@ -28,6 +21,14 @@ DATA = {
 }
 
 
+EVENT_PARKING_DATA = {
+    "domain": TEST_DOMAIN,
+    "registration_number": "TES-8",
+    "time_start": (NOW - timedelta(hours=4)).strftime(TIMEFORMAT),
+    "time_end": (NOW + timedelta(days=1, hours=1)).strftime(TIMEFORMAT),
+}
+
+
 def test_delete_event_parking(id):
     response = requests.delete(
         f"{PARKKI_HOST}/operator/v1/event_parking/{id}/", headers=HEADERS
@@ -35,9 +36,17 @@ def test_delete_event_parking(id):
     assert response.status_code == 204, response.text
 
 
-def test_create_event_parking_without_event_area(data=DATA):
-    data["time_start"] = (NOW - timedelta(hours=4)).strftime(TIMEFORMAT)
-    data["time_end"] = (NOW + timedelta(days=1, hours=1)).strftime(TIMEFORMAT)
+def test_create_event_parking_without_event_area(data=EVENT_PARKING_DATA):
+    response = requests.post(
+        f"{PARKKI_HOST}/operator/v1/event_parking/", headers=HEADERS, json=data
+    )
+    assert response.status_code == 400, response.text
+    assert "inside an event area or" in response.text
+
+
+def test_create_event_parking_event_area_not_found(data=EVENT_PARKING_DATA):
+    data = deepcopy(data)
+    data["location"] = {"type": "Point", "coordinates": [22.2621559, 60.4525144]}
     response = requests.post(
         f"{PARKKI_HOST}/operator/v1/event_parking/", headers=HEADERS, json=data
     )
@@ -45,11 +54,11 @@ def test_create_event_parking_without_event_area(data=DATA):
     assert "No event area found" in response.text
 
 
-def test_create_valid_event_parking(event_area_id=TEST_EVENT_AREA_ID, data=DATA):
+def test_create_valid_event_parking(
+    event_area_id=TEST_EVENT_AREA_ID, data=EVENT_PARKING_DATA
+):
     data = deepcopy(data)
     data["event_area_id"] = event_area_id
-    data["time_start"] = (NOW - timedelta(hours=4)).strftime(TIMEFORMAT)
-    data["time_end"] = (NOW + timedelta(days=1, hours=1)).strftime(TIMEFORMAT)
     response = requests.post(
         f"{PARKKI_HOST}/operator/v1/event_parking/", headers=HEADERS, json=data
     )
@@ -61,21 +70,36 @@ def test_create_valid_event_parking(event_area_id=TEST_EVENT_AREA_ID, data=DATA)
     return json_data["id"]
 
 
-def test_event_parking_replace_by_id_and_grace_period(id, data=DATA):
+def test_create_valid_event_parking_by_location(data=DATA):
     data = deepcopy(data)
-    data["time_start"] = (NOW - timedelta(hours=4)).strftime(TIMEFORMAT)
-    data["time_end"] = (NOW + timedelta(days=1, hours=1)).strftime(TIMEFORMAT)
+    data["location"] = {
+        "type": "Point",
+        "coordinates": [TEST_EVENT_AREA_LONGITUDE, TEST_EVENT_AREA_LATITUDE],
+    }
+    response = requests.post(
+        f"{PARKKI_HOST}/operator/v1/event_parking/", headers=HEADERS, json=data
+    )
+    assert response.status_code == 201, response.text
+    json_data = response.json()
+    assert json_data["event_area_id"] == TEST_EVENT_AREA_ID
+    assert json_data["registration_number"] == "TES-8"
+    assert json_data["status"] == "valid"
+    return json_data["id"]
+
+
+def test_event_parking_replace_by_id_and_grace_period(id, data=EVENT_PARKING_DATA):
+    data = deepcopy(data)
     data["event_area_id"] = TEST_EVENT_AREA_ID
-    data["registration_number"] = "TES-8"
+    data["registration_number"] = "TES-9"
     response = requests.patch(
         f"{PARKKI_HOST}/operator/v1/event_parking/{id}/", headers=HEADERS, json=data
     )
     json_data = response.json()
     assert json_data["status"] == "valid"
     assert json_data["domain"] == TEST_DOMAIN
-    assert json_data["registration_number"] == "TES-8"
+    assert json_data["registration_number"] == "TES-9"
     print("Waiting for 130seconds, to test that grace period(2 minutes) has passed....")
-    data["registration_number"] = "TES-8"
+    data["registration_number"] = "TES-9"
     time.sleep(130)
     response = requests.put(
         f"{PARKKI_HOST}/operator/v1/event_parking/{id}/", headers=HEADERS, json=data
@@ -196,4 +220,7 @@ if __name__ == "__main__":
         id = test_create_valid_event_parking()
         test_event_parking_replace_by_id_and_grace_period(id)
         test_create_event_parking_without_event_area()
+        test_create_event_parking_event_area_not_found()
+        test_delete_event_parking(id)
+        id = test_create_valid_event_parking_by_location()
         test_delete_event_parking(id)
