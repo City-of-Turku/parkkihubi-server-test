@@ -1,0 +1,226 @@
+import time
+from copy import deepcopy
+from datetime import datetime, timedelta
+
+import requests
+
+from constants import (HEADERS, PARKKI_HOST, PARKKI_HTTP_HOST, TEST_DOMAIN,
+                       TEST_EVENT_AREA_ID, TEST_EVENT_AREA_LATITUDE,
+                       TEST_EVENT_AREA_LONGITUDE, TEST_EVENT_PARKING,
+                       TEST_HTTP, TEST_PAYMENT_ZONE_NUMBER,
+                       TEST_PERMIT_AREA_IDENTIFIER_1, TIMEFORMAT)
+from utils import value_in_list_of_dicts
+
+NOW = datetime.now()
+
+DATA = {
+    "zone": TEST_PAYMENT_ZONE_NUMBER,
+    "domain": TEST_DOMAIN,
+    "location": {"type": "Point", "coordinates": [22.2621559, 60.4525144]},
+    "registration_number": "TES-7",
+}
+
+
+EVENT_PARKING_DATA = {
+    "domain": TEST_DOMAIN,
+    "registration_number": "TES-8",
+    "time_start": (NOW - timedelta(hours=4)).strftime(TIMEFORMAT),
+    "time_end": (NOW + timedelta(days=1, hours=1)).strftime(TIMEFORMAT),
+}
+
+
+def test_delete_event_parking(id):
+    response = requests.delete(
+        f"{PARKKI_HOST}/operator/v1/event_parking/{id}/", headers=HEADERS
+    )
+    assert response.status_code == 204, response.text
+
+
+def test_create_event_parking_without_event_area(data=EVENT_PARKING_DATA):
+    response = requests.post(
+        f"{PARKKI_HOST}/operator/v1/event_parking/", headers=HEADERS, json=data
+    )
+    assert response.status_code == 400, response.text
+    assert "inside an event area or" in response.text
+
+
+def test_create_event_parking_event_area_not_found(data=EVENT_PARKING_DATA):
+    data = deepcopy(data)
+    data["location"] = {"type": "Point", "coordinates": [22.2621559, 60.4525144]}
+    response = requests.post(
+        f"{PARKKI_HOST}/operator/v1/event_parking/", headers=HEADERS, json=data
+    )
+    assert response.status_code == 400, response.text
+    assert "No event area found" in response.text
+
+
+def test_create_valid_event_parking(
+    event_area_id=TEST_EVENT_AREA_ID, data=EVENT_PARKING_DATA
+):
+    data = deepcopy(data)
+    data["event_area_id"] = event_area_id
+    response = requests.post(
+        f"{PARKKI_HOST}/operator/v1/event_parking/", headers=HEADERS, json=data
+    )
+    assert response.status_code == 201, response.text
+    json_data = response.json()
+    assert json_data["status"] == "valid"
+    assert json_data["domain"] == TEST_DOMAIN
+    assert json_data["registration_number"] == data["registration_number"]
+    return json_data["id"]
+
+
+def test_create_valid_event_parking_by_location(data=DATA):
+    data = deepcopy(data)
+    data["location"] = {
+        "type": "Point",
+        "coordinates": [TEST_EVENT_AREA_LONGITUDE, TEST_EVENT_AREA_LATITUDE],
+    }
+    response = requests.post(
+        f"{PARKKI_HOST}/operator/v1/event_parking/", headers=HEADERS, json=data
+    )
+    assert response.status_code == 201, response.text
+    json_data = response.json()
+    assert json_data["event_area_id"] == TEST_EVENT_AREA_ID
+    assert json_data["registration_number"] == "TES-8"
+    assert json_data["status"] == "valid"
+    return json_data["id"]
+
+
+def test_event_parking_replace_by_id_and_grace_period(id, data=EVENT_PARKING_DATA):
+    data = deepcopy(data)
+    data["event_area_id"] = TEST_EVENT_AREA_ID
+    data["registration_number"] = "TES-9"
+    response = requests.patch(
+        f"{PARKKI_HOST}/operator/v1/event_parking/{id}/", headers=HEADERS, json=data
+    )
+    json_data = response.json()
+    assert json_data["status"] == "valid"
+    assert json_data["domain"] == TEST_DOMAIN
+    assert json_data["registration_number"] == "TES-9"
+    print("Waiting for 130seconds, to test that grace period(2 minutes) has passed....")
+    data["registration_number"] = "TES-9"
+    time.sleep(130)
+    response = requests.put(
+        f"{PARKKI_HOST}/operator/v1/event_parking/{id}/", headers=HEADERS, json=data
+    )
+    response.status_code == 403
+    assert "Grace period has passed" in response.json()["detail"]
+
+
+def test_get_payment_zones():
+    response = requests.get(f"{PARKKI_HOST}/operator/v1/payment_zone/", headers=HEADERS)
+    assert response.status_code == 200, response.text
+    json_data = response.json()
+    assert "count" in json_data
+    assert "results" in json_data
+    assert "next" in json_data
+    assert "previous" in json_data
+    assert json_data["count"] > 0
+    assert value_in_list_of_dicts(TEST_DOMAIN, json_data["results"]) is True
+    assert value_in_list_of_dicts("1", json_data["results"]) is True
+    assert "name" in json_data["results"][0]
+    assert "code" in json_data["results"][0]
+    assert "domain" in json_data["results"][0]
+
+
+def test_get_permit_areas():
+    response = requests.get(f"{PARKKI_HOST}/operator/v1/permit_area/", headers=HEADERS)
+    assert response.status_code == 200, response.text
+    json_data = response.json()
+    assert "count" in json_data
+    assert "results" in json_data
+    assert json_data["count"] > 0
+    assert "name" in json_data["results"][0]
+    assert "code" in json_data["results"][0]
+    assert "domain" in json_data["results"][0]
+    assert value_in_list_of_dicts(TEST_DOMAIN, json_data["results"]) is True
+    assert (
+        value_in_list_of_dicts(TEST_PERMIT_AREA_IDENTIFIER_1, json_data["results"])
+        is True
+    )
+
+
+def test_create_not_valid_parking_to_http(data=DATA):
+    # If testing on localhost this test fails.
+    # Fails as posting to HTTP and not HTTPS
+    response = requests.post(
+        f"{PARKKI_HTTP_HOST}/operator/v1/parking/", headers=HEADERS, json=data
+    )
+    assert response.status_code == 405, response.text
+    assert "not allowed" in response.text
+
+
+def test_create_not_valid_parking(data=DATA):
+    # 'time_start' and 'time_end in the past
+    data["time_start"] = (NOW - timedelta(hours=5)).strftime(TIMEFORMAT)
+    data["time_end"] = (NOW - timedelta(hours=4)).strftime(TIMEFORMAT)
+    response = requests.post(
+        f"{PARKKI_HOST}/operator/v1/parking/", headers=HEADERS, json=data
+    )
+    assert response.status_code == 201, response.text
+    json_data = response.json()
+    assert json_data["status"] == "not_valid"
+    assert json_data["domain"] == TEST_DOMAIN
+    assert json_data["registration_number"] == data["registration_number"]
+    return json_data["id"]
+
+
+def test_create_valid_parking(data=DATA):
+    data["time_start"] = (NOW - timedelta(hours=4)).strftime(TIMEFORMAT)
+    data["time_end"] = (NOW + timedelta(days=1, hours=1)).strftime(TIMEFORMAT)
+    response = requests.post(
+        f"{PARKKI_HOST}/operator/v1/parking/", headers=HEADERS, json=data
+    )
+    assert response.status_code == 201, response.text
+    json_data = response.json()
+    assert json_data["status"] == "valid"
+    assert json_data["domain"] == TEST_DOMAIN
+    assert json_data["registration_number"] == data["registration_number"]
+    return json_data["id"]
+
+
+def test_delete_parking(id):
+    response = requests.delete(
+        f"{PARKKI_HOST}/operator/v1/parking/{id}/", headers=HEADERS
+    )
+    assert response.status_code == 204, response.text
+
+
+def test_parking_replace_by_id_and_grace_period(id, data=DATA):
+    data["registration_number"] = "TES-8"
+    response = requests.patch(
+        f"{PARKKI_HOST}/operator/v1/parking/{id}/", headers=HEADERS, json=data
+    )
+    json_data = response.json()
+    assert json_data["status"] == "valid"
+    assert json_data["domain"] == TEST_DOMAIN
+    assert json_data["registration_number"] == "TES-8"
+    print("Waiting for 130seconds, to test that grace period(2 minutes) has passed....")
+    data["registration_number"] = "TES-8"
+    time.sleep(130)
+    response = requests.put(
+        f"{PARKKI_HOST}/operator/v1/parking/{id}/", headers=HEADERS, json=data
+    )
+    assert response.status_code == 403, response.text
+    assert "Grace period has passed" in response.json()["detail"]
+
+
+if __name__ == "__main__":
+    test_get_payment_zones()
+    test_get_permit_areas()
+    if TEST_HTTP:
+        test_create_not_valid_parking_to_http(DATA)
+    id = test_create_not_valid_parking(DATA)
+    test_delete_parking(id)
+    id = test_create_valid_parking()
+    test_parking_replace_by_id_and_grace_period(id)
+    test_delete_parking(id)
+    if TEST_EVENT_PARKING:
+        id = test_create_valid_event_parking()
+        test_event_parking_replace_by_id_and_grace_period(id)
+        test_create_event_parking_without_event_area()
+        test_create_event_parking_event_area_not_found()
+        test_delete_event_parking(id)
+        id = test_create_valid_event_parking_by_location()
+        test_delete_event_parking(id)
